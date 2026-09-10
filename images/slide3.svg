@@ -1,0 +1,78 @@
+<svg width="1200" height="600" viewBox="0 0 1200 600" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FF9800;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#F57C00;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <rect width="1200" height="600" fill="url(#bg3)"/>
+  
+  <!-- Team of professionals -->
+  <g transform="translate(600, 150)">
+    <!-- Person 1 -->
+    <g transform="translate(0, 0)">
+      <ellipse cx="30" cy="30" rx="25" ry="30" fill="rgba(255,255,255,0.9)"/>
+      <rect x="10" y="55" width="40" height="80" rx="20" fill="rgba(255,255,255,0.8)"/>
+    </g>
+    
+    <!-- Person 2 -->
+    <g transform="translate(80, 0)">
+      <ellipse cx="30" cy="30" rx="25" ry="30" fill="rgba(255,255,255,0.9)"/>
+      <rect x="10" y="55" width="40" height="80" rx="20" fill="rgba(255,255,255,0.8)"/>
+    </g>
+    
+    <!-- Person 3 -->
+    <g transform="translate(160, 0)">
+      <ellipse cx="30" cy="30" rx="25" ry="30" fill="rgba(255,255,255,0.9)"/>
+      <rect x="10" y="55" width="40" height="80" rx="20" fill="rgba(255,255,255,0.8)"/>
+    </g>
+  </g>
+  
+  <!-- Investment platform features -->
+  <g transform="translate(100, 200)">
+    <rect x="0" y="0" width="450" height="200" fill="rgba(255,255,255,0.15)" rx="15"/>
+    
+    <text x="20" y="30" font-family="Arial" font-size="16" font-weight="bold" fill="white">ELITE INVESTMENT PLATFORM</text>
+    
+    <!-- Feature boxes -->
+    <g transform="translate(20, 50)">
+      <rect x="0" y="0" width="120" height="60" fill="rgba(255,255,255,0.2)" rx="5"/>
+      <text x="10" y="20" font-family="Arial" font-size="10" font-weight="bold" fill="white">24/7 Support</text>
+      <text x="10" y="35" font-family="Arial" font-size="9" fill="white">Expert guidance</text>
+      <text x="10" y="50" font-family="Arial" font-size="9" fill="white">anytime, anywhere</text>
+    </g>
+    
+    <g transform="translate(160, 50)">
+      <rect x="0" y="0" width="120" height="60" fill="rgba(255,255,255,0.2)" rx="5"/>
+      <text x="10" y="20" font-family="Arial" font-size="10" font-weight="bold" fill="white">Secure Wallet</text>
+      <text x="10" y="35" font-family="Arial" font-size="9" fill="white">Bank-grade</text>
+      <text x="10" y="50" font-family="Arial" font-size="9" fill="white">encryption</text>
+    </g>
+    
+    <g transform="translate(300, 50)">
+      <rect x="0" y="0" width="120" height="60" fill="rgba(255,255,255,0.2)" rx="5"/>
+      <text x="10" y="20" font-family="Arial" font-size="10" font-weight="bold" fill="white">Instant Payouts</text>
+      <text x="10" y="35" font-family="Arial" font-size="9" fill="white">Fast withdrawal</text>
+      <text x="10" y="50" font-family="Arial" font-size="9" fill="white">processing</text>
+    </g>
+    
+    <g transform="translate(90, 130)">
+      <rect x="0" y="0" width="250" height="40" fill="rgba(255,255,255,0.3)" rx="20"/>
+      <text x="125" y="25" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="white">JOIN 15,000+ ELITE INVESTORS</text>
+    </g>
+  </g>
+  
+  <!-- Success badges -->
+  <g transform="translate(700, 400)">
+    <circle cx="50" cy="50" r="35" fill="rgba(255,255,255,0.3)"/>
+    <text x="50" y="40" text-anchor="middle" font-family="Arial" font-size="8" font-weight="bold" fill="white">VERIFIED</text>
+    <text x="50" y="55" text-anchor="middle" font-family="Arial" font-size="8" font-weight="bold" fill="white">PLATFORM</text>
+  </g>
+  
+  <g transform="translate(800, 400)">
+    <circle cx="50" cy="50" r="35" fill="rgba(255,255,255,0.3)"/>
+    <text x="50" y="40" text-anchor="middle" font-family="Arial" font-size="8" font-weight="bold" fill="white">LICENSED</text>
+    <text x="50" y="55" text-anchor="middle" font-family="Arial" font-size="8" font-weight="bold" fill="white">OPERATOR</text>
+  </g>
+</svg>

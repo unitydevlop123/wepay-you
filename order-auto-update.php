@@ -1,0 +1,805 @@
+<?php require_once 'firebase_setup.php'; ?>
+<?php
+// Smart Auto-Detection System for Order Completion
+// This file monitors for completed orders and automatically updates user progress
+
+// Start session only if not already started and no output has been sent
+if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
+    session_start();
+}
+
+// Suppress all error output for AJAX responses
+error_reporting(0);
+ini_set('display_errors', 0);
+
+function checkForCompletedOrders() {
+    // Get completions from Firebase
+    $completions = readJsonFile('order_completion_tracker') ?: [];
+
+    if (empty($completions)) {
+        return false;
+    }
+
+    foreach ($completions as $key => $completion) {
+        // Skip if completion is not an array (data corruption)
+        if (!is_array($completion)) {
+            continue;
+        }
+
+        if (!isset($completion['processed']) || !$completion['processed']) {
+            // Check if user has reached daily limits before processing
+            $canProcessMore = canUserProcessMoreOrders($completion['email']);
+
+            if (!$canProcessMore) {
+                // User reached daily limit, mark as processed but don't update progress
+                $completions[$key]['processed'] = true;
+                $completions[$key]['processed_at'] = date('Y-m-d H:i:s');
+                $completions[$key]['skipped_reason'] = 'Daily limit reached';
+                writeJsonFile('order_completion_tracker', $completions);
+                continue;
+            }
+
+            // Calculate commission based on user's selected package
+            $commission_data = calculateCommissionForSelectedPackage($completion['email']);
+            $auto_commission = $commission_data['commission'];
+            $selected_package_name = $commission_data['package_name'];
+
+            // Process with calculated commission and selected package
+            $success = updateUserOrderProgressWithLimits($completion['email'], $auto_commission, $selected_package_name);
+
+            if ($success) {
+                // CREATE NOTIFICATION FOR ORDER COMPLETION - Save to Firebase (same format as notifications.php)
+                $notification = [
+                    'id' => uniqid('order_'),
+                    'type' => 'order_completed',
+                    'title' => 'Order Completed Successfully!',
+                    'message' => 'You have successfully completed an order and earned ₦' . number_format($auto_commission, 2) . ' commission from your ' . $selected_package_name . ' package.',
+                    'amount' => $auto_commission,
+                    'status' => 'unread',
+                    'created_at' => date('Y-m-d H:i:s')
+                ];
+
+                // Use the Firebase function to add notification (same as notifications.php uses)
+                addUserNotification($completion['email'], $notification);
+
+                // CREATE TRANSACTION RECORD - Save to Firebase (same format as other parts use)
+                $transaction = [
+                    'id' => 'TXN_' . strtoupper(uniqid()),
+                    'transaction_type' => 'order_commission',
+                    'description' => 'Order Commission - ' . $selected_package_name . ' Package',
+                    'amount' => $auto_commission,
+                    'status' => 'completed',
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'reference' => 'ORDER_' . strtoupper(uniqid())
+                ];
+
+                // Use the Firebase function to add transaction
+                addUserTransaction($completion['email'], $transaction);
+
+                // Mark as processed
+                $completions[$key]['processed'] = true;
+                $completions[$key]['processed_at'] = date('Y-m-d H:i:s');
+                $completions[$key]['calculated_commission'] = $auto_commission;
+
+                // Save updated tracker to Firebase
+                writeJsonFile('order_completion_tracker', $completions);
+
+                return [
+                    'success' => true,
+                    'email' => $completion['email'],
+                    'commission' => $auto_commission,
+                    'original_commission' => $completion['commission']
+                ];
+            }
+        }
+    }
+
+    return false;
+}
+
+function checkDailyReset() {
+    // AUTOMATIC DAILY RESET AT 12AM NIGERIA TIME
+    date_default_timezone_set('Africa/Lagos');
+
+    $users = getUsers();
+    if (empty($users)) {
+        return false;
+    }
+    $today = date('Y-m-d');
+    $reset_performed = false;
+
+    foreach ($users as $key => $user) {
+        // Skip invalid user data
+        if (!is_array($user) || empty($user)) {
+            continue;
+        }
+
+        // Skip if user doesn't have email (invalid user)
+        if (!isset($user['email'])) {
+            continue;
+        }
+
+        $last_order_date = $user['last_order_date'] ?? '';
+
+        if ($last_order_date !== $today) {
+            // RESET FOR NEW DAY - Clear all earnings and progress (NO automatic cycling)
+            $users[$key]['todays_orders_completed'] = 0;
+            $users[$key]['todays_commission'] = 0.00;
+            $users[$key]['last_order_date'] = $today;
+
+            // Reset all package progress to prevent mixed earnings
+            if (isset($users[$key]['active_packages'])) {
+                foreach ($users[$key]['active_packages'] as $pkg_index => $pkg) {
+                    $users[$key]['active_packages'][$pkg_index]['orders_completed_today'] = 0;
+                    $users[$key]['active_packages'][$pkg_index]['commission_today'] = 0;
+                }
+            }
+
+            $reset_performed = true;
+        }
+    }
+
+    if ($reset_performed) {
+        saveUsers($users);
+
+        // Clear completion tracker for new day
+        writeJsonFile('order_completion_tracker', []);
+
+        return true;
+    }
+
+    return false;
+}
+
+// NEW: Check if user can process more orders (check if ANY package has remaining capacity)
+function canUserProcessMoreOrders($email) {
+    $users = getUsers();
+    if (empty($users)) {
+        return false;
+    }
+
+    foreach ($users as $user) {
+        // Skip invalid user data
+        if (!is_array($user)) {
+            continue;
+        }
+        if ($user['email'] === $email) {
+            // Check if user has active packages
+            if (!isset($user['active_packages']) || empty($user['active_packages'])) {
+                return false; // No packages, can't process orders
+            }
+
+            $active_packages = $user['active_packages'];
+
+            // Filter valid (non-expired) packages
+            $valid_packages = [];
+            foreach ($active_packages as $index => $package) {
+                $expiry_date = new DateTime($package['expiry_date']);
+                $today = new DateTime();
+                if ($expiry_date > $today) {
+                    $valid_packages[] = ['index' => $index, 'package' => $package];
+                }
+            }
+
+            if (empty($valid_packages)) {
+                return false; // No valid packages
+            }
+
+            // Check if ANY package has remaining capacity (not just current cycle package)
+            foreach ($valid_packages as $pkg_info) {
+                $package = $pkg_info['package'];
+                $commission_today = $package['commission_today'] ?? 0;
+
+                // ALWAYS use the user's purchased package data (not live Firebase data)
+                // This ensures updates to packages don't affect existing users
+                $target_daily_profit = $package['daily_profit'];
+
+                // If ANY package has remaining earnings capacity, user can process orders
+                if ($commission_today < $target_daily_profit) {
+                    return true; // Found at least one incomplete package
+                }
+            }
+
+            // All packages have reached their daily limits
+            return false;
+        }
+    }
+
+    return false;
+}
+
+// NEW: Calculate commission based on user's SELECTED package (free user choice system)
+function calculateCommissionForSelectedPackage($email, $selected_package_name = null) {
+    // Use Firebase instead of local file
+    $users = getUsers();
+
+    if (empty($users)) {
+        return ['commission' => 7.50, 'package_name' => null]; // Default commission
+    }
+
+    foreach ($users as $user) {
+        // Skip invalid user data
+        if (!is_array($user)) {
+            continue;
+        }
+        if ($user['email'] === $email) {
+            // Check if user has active packages
+            if (!isset($user['active_packages']) || empty($user['active_packages'])) {
+                return ['commission' => 7.50, 'package_name' => null]; // Default commission
+            }
+
+            $active_packages = $user['active_packages'];
+
+            // Filter valid (non-expired) packages
+            $valid_packages = [];
+            foreach ($active_packages as $index => $package) {
+                $expiry_date = new DateTime($package['expiry_date']);
+                $today = new DateTime();
+                if ($expiry_date > $today) {
+                    $valid_packages[] = ['index' => $index, 'package' => $package];
+                }
+            }
+
+            if (empty($valid_packages)) {
+                return ['commission' => 7.50, 'package_name' => null]; // Default commission
+            }
+
+            // GET USER'S SELECTED PACKAGE FROM SESSION OR CURRENT STATE
+            $user_selected_package = null;
+
+            // Try to get selected package from session (if available)
+            session_start();
+            if (isset($_SESSION['selected_package'])) {
+                $user_selected_package = $_SESSION['selected_package'];
+            }
+
+            // Override with parameter if provided
+            if ($selected_package_name) {
+                $user_selected_package = $selected_package_name;
+            }
+
+            // PRIORITY 1: ALWAYS use user's selected package if available
+            if ($user_selected_package) {
+                foreach ($valid_packages as $pkg_info) {
+                    if ($pkg_info['package']['name'] === $user_selected_package) {
+                        $current_package_info = $pkg_info;
+                        $current_package = $pkg_info['package'];
+
+                        // Check if selected package is complete - Use Firebase instead of local files
+                        $live_package_data = readJsonFile(strtolower($current_package['name']));
+                        if (!empty($live_package_data)) {
+                            $daily_profit = $live_package_data['daily_profit'];
+                            $current_earnings = $current_package['commission_today'] ?? 0;
+                            $current_orders = $current_package['orders_completed_today'] ?? 0;
+
+                            // If selected package is already complete, return zero commission
+                            if ($current_earnings >= $daily_profit) {
+                                return ['commission' => 0, 'package_name' => $current_package['name'], 'completed' => true];
+                            }
+
+                            // Calculate commission for selected package with DYNAMIC RANDOM AMOUNTS
+                            $earnings_left = $daily_profit - $current_earnings;
+                            $daily_orders = $live_package_data['orders'] ?? 20;
+                            $orders_left = $daily_orders - $current_orders;
+
+                            // Generate RANDOM commission that ensures target completion
+                            if ($orders_left <= 1) {
+                                // Last order - give exact remaining amount
+                                return ['commission' => round($earnings_left, 2), 'package_name' => $current_package['name'], 'selected' => true, 'final_order' => true];
+                            }
+
+                            // Calculate safe random range for this order
+                            $average_per_order = $daily_profit / $daily_orders;
+                            $min_commission = max(5, $average_per_order * 0.4); // Minimum 40% of average or ₦5
+                            $max_safe_amount = $earnings_left - (($orders_left - 1) * $min_commission);
+                            $max_commission = min($max_safe_amount, $average_per_order * 1.8); // Maximum 180% of average
+
+                            // Generate random commission within safe bounds
+                            $random_commission = mt_rand($min_commission * 100, $max_commission * 100) / 100;
+
+                            return ['commission' => round($random_commission, 2), 'package_name' => $current_package['name'], 'selected' => true, 'random_generated' => true];
+                        }
+                        break;
+                    }
+                }
+            }
+
+            // PRIORITY 2: ONLY if no package was selected, find any incomplete package
+            foreach ($valid_packages as $pkg_info) {
+                $pkg = $pkg_info['package'];
+
+                // Load package data to check completion - Use Firebase instead of local files
+                $live_package_data = readJsonFile(strtolower($pkg['name']));
+                if (!empty($live_package_data)) {
+                    $daily_profit = $live_package_data['daily_profit'];
+                    $daily_orders = $live_package_data['orders'] ?? 20;
+                    $current_earnings = $pkg['commission_today'] ?? 0;
+                    $current_orders = $pkg['orders_completed_today'] ?? 0;
+
+                    // Check if package is truly incomplete (has remaining capacity)
+                    $orders_incomplete = ($current_orders < $daily_orders);
+                    $earnings_incomplete = ($current_earnings < $daily_profit);
+
+                    // If this package has ANY remaining capacity, use it
+                    if ($orders_incomplete && $earnings_incomplete) {
+                        // Calculate commission for this incomplete package
+                        $earnings_left = $daily_profit - $current_earnings;
+                        $commission_per_order = $daily_profit / $daily_orders;
+
+                        // Return exact remaining amount if less than standard commission
+                        if ($earnings_left < $commission_per_order) {
+                            return ['commission' => round($earnings_left, 2), 'package_name' => $pkg['name'], 'auto_selected' => true];
+                        }
+
+                        return ['commission' => round($commission_per_order, 2), 'package_name' => $pkg['name'], 'auto_selected' => true];
+                    }
+                }
+            }
+
+            // PRIORITY 3: All packages complete - return first package with zero commission
+            if (!empty($valid_packages)) {
+                $first_package = $valid_packages[0]['package'];
+                return ['commission' => 0, 'package_name' => $first_package['name'], 'all_completed' => true];
+            }
+
+            // Fallback
+            return ['commission' => 7.50, 'package_name' => null];
+        }
+    }
+
+    return ['commission' => 7.50, 'package_name' => null]; // Default commission
+}
+
+// NEW: Enhanced function with SELECTED package priority (no auto-cycling)
+function updateUserOrderProgressWithLimits($email, $commission_earned, $selectedPackageName = null) {
+    // Use Firebase instead of local file
+    $users = getUsers();
+
+    if (empty($users)) {
+        return false;
+    }
+
+    foreach ($users as $key => $user) {
+        // Skip invalid user data
+        if (!is_array($user)) {
+            continue;
+        }
+        if ($user['email'] === $email) {
+            // Check for daily reset
+            date_default_timezone_set('Africa/Lagos');
+            $last_order_date = $user['last_order_date'] ?? '';
+            $today = date('Y-m-d');
+
+            if ($last_order_date !== $today) {
+                // Reset for new day
+                $users[$key]['current_package_cycle'] = 0;
+                $users[$key]['todays_orders_completed'] = 0;
+                $users[$key]['todays_commission'] = 0.00;
+                $users[$key]['last_order_date'] = $today;
+
+                if (isset($users[$key]['active_packages'])) {
+                    foreach ($users[$key]['active_packages'] as $pkg_index => $pkg) {
+                        $users[$key]['active_packages'][$pkg_index]['orders_completed_today'] = 0;
+                        $users[$key]['active_packages'][$pkg_index]['commission_today'] = 0;
+                    }
+                }
+                $user = $users[$key];
+            }
+
+            // Check if user can process more orders
+            if (!canUserProcessMoreOrders($email)) {
+                return false; // Daily limits reached, can't process
+            }
+
+            // Get target package from parameter first, then session as fallback
+            $target_package = $selectedPackageName;
+            if (!$target_package) {
+                session_start();
+                $target_package = $_SESSION['selected_package'] ?? null;
+            }
+
+            if (!$target_package) {
+                return false; // No package selected
+            }
+
+            // Find and update the SELECTED package specifically
+            $package_found = false;
+            if (isset($user['active_packages']) && !empty($user['active_packages'])) {
+                foreach ($user['active_packages'] as $pkg_index => $package) {
+                    if (strtolower($package['name']) === strtolower($target_package)) {
+                        // Found the selected package - check completion guards first
+                        $current_orders = $package['orders_completed_today'] ?? 0;
+                        $current_commission = $package['commission_today'] ?? 0.00;
+
+                        // Load live package data for limits - Use standardized Firebase path
+                        $live_package_data = readJsonFile(strtolower($package['name']));
+                        $daily_orders = $live_package_data['orders'] ?? ($package['daily_orders'] ?? 20);
+                        $daily_profit = $live_package_data['daily_profit'] ?? ($package['daily_profit'] ?? 150);
+
+                        // COMPLETION GUARDS - Don't update if package is complete or commission is zero
+                        if ($commission_earned <= 0) {
+                            return false; // No commission to add
+                        }
+                        if ($current_orders >= $daily_orders) {
+                            return false; // Orders limit already reached
+                        }
+                        if ($current_commission >= $daily_profit) {
+                            return false; // Commission limit already reached
+                        }
+
+                        // Update balance FIRST (critical for user payouts)
+                        $users[$key]['balance'] = ($user['balance'] ?? 0) + $commission_earned;
+
+                        // Update the selected package specifically
+                        $users[$key]['active_packages'][$pkg_index]['orders_completed_today'] = $current_orders + 1;
+                        $users[$key]['active_packages'][$pkg_index]['commission_today'] = $current_commission + $commission_earned;
+
+                        // Update global counters
+                        $users[$key]['todays_orders_completed'] = ($user['todays_orders_completed'] ?? 0) + 1;
+                        $users[$key]['todays_commission'] = ($user['todays_commission'] ?? 0.00) + $commission_earned;
+
+                        // CHECK IF PACKAGE IS NOW COMPLETE - Create completion notification
+                        $new_orders_completed = $current_orders + 1;
+                        $new_commission_earned = $current_commission + $commission_earned;
+
+                        if ($new_orders_completed >= $daily_orders && $new_commission_earned >= $daily_profit) {
+                            // Package completed! Create completion notification (same format as notifications.php)
+                            $completion_notification = [
+                                'id' => uniqid('complete_'),
+                                'type' => 'package_completed',
+                                'title' => 'Package Completed! 🎉',
+                                'message' => 'Congratulations! You have completed all ' . $daily_orders . ' orders for your ' . $target_package . ' package today and earned ₦' . number_format($daily_profit, 2) . ' total commission!',
+                                'amount' => $daily_profit,
+                                'status' => 'unread',
+                                'created_at' => date('Y-m-d H:i:s')
+                            ];
+
+                            // Use the Firebase function to add notification (same way notifications.php does)
+                            addUserNotification($email, $completion_notification);
+                        }
+
+                        $package_found = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!$package_found) {
+                return false; // Selected package not found
+            }
+
+            // Save updated user data to Firebase
+            return saveUsers($users);
+        }
+    }
+
+    return false;
+}
+// Original function kept for backward compatibility
+function updateUserOrderProgress($email, $commission_earned) {
+    // Use Firebase instead of local file
+    $users = getUsers();
+
+    if (empty($users)) {
+        return false;
+    }
+
+    if (!is_array($users)) {
+        return false;
+    }
+
+    $userFound = false;
+    for ($i = 0; $i < count($users); $i++) {
+        if (isset($users[$i]['email']) && $users[$i]['email'] === $email) {
+            $userFound = true;
+
+            // Update balance immediately
+            $users[$i]['balance'] = ($users[$i]['balance'] ?? 0) + $commission_earned;
+
+            // Update order progress
+            $users[$i]['todays_orders_completed'] = ($users[$i]['todays_orders_completed'] ?? 0) + 1;
+            $users[$i]['todays_commission'] = ($users[$i]['todays_commission'] ?? 0) + $commission_earned;
+
+            // Save updated user data to Firebase
+            saveUsers($users);
+
+            // Create success notification
+            $notificationDir = 'backend/storage/users/' . $email;
+            if (!file_exists($notificationDir)) {
+                mkdir($notificationDir, 0755, true);
+            }
+
+            $notificationFile = $notificationDir . '/notifications.json';
+            $notifications = [];
+            if (file_exists($notificationFile)) {
+                $notifications = json_decode(file_get_contents($notificationFile), true) ?: [];
+            }
+
+            $notifications[] = [
+                'id' => uniqid(),
+                'type' => 'order_completed',
+                'title' => 'Order Completed Successfully!',
+                'message' => 'Your commission of ₦' . number_format($commission_earned, 2) . ' has been automatically added to your balance.',
+                'amount' => $commission_earned,
+                'created_at' => date('Y-m-d H:i:s'),
+                'read' => false
+            ];
+
+            file_put_contents($notificationFile, json_encode($notifications, JSON_PRETTY_PRINT));
+
+            return true;
+        }
+    }
+
+    return false;
+}
+
+// AJAX endpoint for checking completed orders
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'check_completions') {
+    // Clean any output buffer and set headers for hosting compatibility
+    while (ob_get_level()) {
+        ob_end_clean();
+    }
+
+    // Hosting-compatible headers
+    header('Content-Type: application/json; charset=UTF-8');
+    header('Cache-Control: no-cache, must-revalidate');
+    header('Expires: Mon, 26 Jul 1997 05:00:00 GMT');
+    header('Pragma: no-cache');
+    header('Access-Control-Allow-Origin: *');
+    header('Access-Control-Allow-Methods: POST, GET, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type');
+
+    // Handle preflight requests for hosting
+    if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
+        http_response_code(200);
+        exit();
+    }
+
+    // Prevent any additional output
+    ob_start();
+
+    try {
+        // FIRST: Check for daily reset at 12am Nigeria time
+        $reset_result = checkDailyReset();
+
+        // THEN: Check for completed orders
+        $result = checkForCompletedOrders();
+
+        if ($result && $result['success']) {
+            $response = [
+                'success' => true,
+                'message' => 'Order automatically processed!',
+                'commission' => $result['commission'],
+                'email' => $result['email']
+            ];
+
+            if ($reset_result) {
+                $response['daily_reset'] = true;
+                $response['message'] = 'New day started! Order processed successfully.';
+            }
+
+            // Clean output and ensure proper JSON for hosting
+            $output = ob_get_clean();
+            echo json_encode($response, JSON_UNESCAPED_UNICODE);
+        } else {
+            $response = [
+                'success' => false,
+                'message' => 'No pending completions found'
+            ];
+
+            if ($reset_result) {
+                $response['daily_reset'] = true;
+                $response['message'] = 'New day started! All progress reset for fresh earnings.';
+                $response['success'] = true;
+            }
+
+            // Clean output and ensure proper JSON for hosting
+            $output = ob_get_clean();
+            echo json_encode($response, JSON_UNESCAPED_UNICODE);
+        }
+
+    } catch (Exception $e) {
+        echo json_encode([
+            'success' => false,
+            'message' => 'Error checking completions: ' . $e->getMessage()
+        ]);
+    }
+    exit;
+}
+
+// AJAX endpoint for dashboard progress updates
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'get_dashboard_progress') {
+    // Clean any output buffer and set headers
+    if (ob_get_level()) {
+        ob_clean();
+    }
+
+    header('Content-Type: application/json');
+
+    try {
+        $email = $_SESSION['email'] ?? 'testing@example.com';
+
+        // Get fresh user data from Firebase
+        clearstatcache(); // Clear file cache
+        $users = getUsers();
+        if (!empty($users)) {
+
+            foreach ($users as $user) {
+                if ($user['email'] === $email) {
+                    $global_orders = $user['todays_orders_completed'] ?? 0;
+                    $global_commission = $user['todays_commission'] ?? 0;
+                    $user_balance = $user['balance'] ?? 0;
+
+                    // Calculate package totals
+                    $package_orders = 0;
+                    $package_total = 0;
+                    $active_packages = $user['active_packages'] ?? [];
+
+                    foreach ($active_packages as $package) {
+                        $package_orders += $package['orders_completed_today'] ?? 0;
+                        $package_total += $package['daily_orders'] ?? 20;
+                    }
+
+                    // Use higher of global or package counts
+                    $final_orders = max($global_orders, $package_orders);
+                    $final_total = max($package_total, 20);
+
+                    echo json_encode([
+                        'success' => true,
+                        'updated' => true,
+                        'orders_completed' => $final_orders,
+                        'total_orders' => $final_total,
+                        'balance' => $user_balance,
+                        'commission_today' => $global_commission
+                    ]);
+                    exit;
+                }
+            }
+        }
+
+        echo json_encode([
+            'success' => false,
+            'message' => 'User data not found'
+        ]);
+
+    } catch (Exception $e) {
+        echo json_encode([
+            'success' => false,
+            'message' => 'Error getting dashboard progress: ' . $e->getMessage()
+        ]);
+    }
+    exit;
+}
+
+// NEW: AJAX endpoint for triggering automatic commission processing
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'trigger_auto_processing') {
+    // Clean any output buffer and set headers
+    if (ob_get_level()) {
+        ob_clean();
+    }
+
+    header('Content-Type: application/json');
+
+    try {
+        $email = $_SESSION['email'] ?? 'testing@example.com';
+
+        // Check if user can process more orders
+        $canProcess = canUserProcessMoreOrders($email);
+
+        if (!$canProcess) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Daily limits reached for all active packages. No more orders can be processed today.',
+                'limit_reached' => true
+            ]);
+            exit;
+        }
+
+        // Calculate commission for user's selected package
+        $commission_data = calculateCommissionForSelectedPackage($email);
+        $auto_commission = $commission_data['commission'];
+
+        // Create a completion record for auto-processing
+        $detection_file = 'backend/storage/order_completion_tracker.json';
+        $completions = [];
+
+        if (file_exists($detection_file)) {
+            $completions = json_decode(file_get_contents($detection_file), true) ?: [];
+        }
+
+        // Add new completion to tracker with auto-calculated commission
+        $completions[] = [
+            'id' => uniqid(),
+            'email' => $email,
+            'commission' => $auto_commission,
+            'completed_at' => date('Y-m-d H:i:s'),
+            'processed' => false,
+            'auto_triggered' => true
+        ];
+
+        // Ensure directory exists
+        $dir = dirname($detection_file);
+        if (!file_exists($dir)) {
+            mkdir($dir, 0755, true);
+        }
+
+        file_put_contents($detection_file, json_encode($completions, JSON_PRETTY_PRINT));
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'Automatic order processing triggered successfully!',
+            'auto_commission' => $auto_commission,
+            'email' => $email
+        ]);
+
+    } catch (Exception $e) {
+        echo json_encode([
+            'success' => false,
+            'message' => $e->getMessage()
+        ]);
+    }
+    exit;
+}
+
+// AJAX endpoint for recording order completion
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'record_completion') {
+    // Clean any output buffer and set headers
+    if (ob_get_level()) {
+        ob_clean();
+    }
+
+    header('Content-Type: application/json');
+
+    try {
+        $email = $_SESSION['email'] ?? 'testing@example.com';
+        $commission = $_SESSION['order_commission'] ?? 7.50;
+
+        if (empty($email)) {
+            throw new Exception('No user email found in session');
+        }
+
+        $detection_file = 'backend/storage/order_completion_tracker.json';
+        $completions = [];
+
+        if (file_exists($detection_file)) {
+            $completions = json_decode(file_get_contents($detection_file), true) ?: [];
+        }
+
+        // Add new completion to tracker
+        $completions[] = [
+            'id' => uniqid(),
+            'email' => $email,
+            'commission' => floatval($commission),
+            'completed_at' => date('Y-m-d H:i:s'),
+            'processed' => false
+        ];
+
+        // Ensure directory exists
+        $dir = dirname($detection_file);
+        if (!file_exists($dir)) {
+            if (!mkdir($dir, 0755, true)) {
+                throw new Exception('Failed to create directory: ' . $dir);
+            }
+        }
+
+        if (file_put_contents($detection_file, json_encode($completions, JSON_PRETTY_PRINT)) === false) {
+            throw new Exception('Failed to write completion tracker file');
+        }
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'Order completion recorded for auto-processing',
+            'email' => $email,
+            'commission' => $commission
+        ]);
+
+    } catch (Exception $e) {
+        echo json_encode([
+            'success' => false,
+            'message' => $e->getMessage()
+        ]);
+    }
+    exit;
+}
+?>

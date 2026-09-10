@@ -1,0 +1,80 @@
+<svg width="1200" height="600" viewBox="0 0 1200 600" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg4" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#9C27B0;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#673AB7;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <rect width="1200" height="600" fill="url(#bg4)"/>
+  
+  <!-- Professional woman with financial growth -->
+  <g transform="translate(750, 120)">
+    <!-- Head -->
+    <ellipse cx="50" cy="40" rx="35" ry="40" fill="rgba(255,255,255,0.9)"/>
+    <!-- Body -->
+    <rect x="25" y="75" width="50" height="120" rx="25" fill="rgba(255,255,255,0.8)"/>
+    <!-- Arms positioned professionally -->
+    <ellipse cx="15" cy="100" rx="12" ry="35" fill="rgba(255,255,255,0.7)"/>
+    <ellipse cx="85" cy="100" rx="12" ry="35" fill="rgba(255,255,255,0.7)"/>
+    <!-- Professional blouse details -->
+    <rect x="30" y="80" width="40" height="10" fill="rgba(255,255,255,0.6)"/>
+  </g>
+  
+  <!-- Financial freedom dashboard -->
+  <g transform="translate(100, 150)">
+    <rect x="0" y="0" width="500" height="280" fill="rgba(255,255,255,0.15)" rx="15"/>
+    
+    <text x="20" y="30" font-family="Arial" font-size="18" font-weight="bold" fill="white">FINANCIAL FREEDOM DASHBOARD</text>
+    
+    <!-- Portfolio value -->
+    <g transform="translate(20, 50)">
+      <text x="0" y="20" font-family="Arial" font-size="12" fill="white">Total Portfolio Value</text>
+      <text x="0" y="45" font-family="Arial" font-size="24" font-weight="bold" fill="white">₦2,847,500</text>
+      <text x="200" y="45" font-family="Arial" font-size="14" font-weight="bold" fill="#4CAF50">+347% Growth</text>
+    </g>
+    
+    <!-- Investment breakdown -->
+    <g transform="translate(20, 110)">
+      <text x="0" y="20" font-family="Arial" font-size="12" fill="white">Active Investments</text>
+      
+      <rect x="0" y="30" width="150" height="20" fill="rgba(76,175,80,0.8)" rx="10"/>
+      <text x="10" y="44" font-family="Arial" font-size="10" font-weight="bold" fill="white">VIP Packages: ₦1.2M</text>
+      
+      <rect x="0" y="60" width="120" height="20" fill="rgba(33,150,243,0.8)" rx="10"/>
+      <text x="10" y="74" font-family="Arial" font-size="10" font-weight="bold" fill="white">Regular: ₦800K</text>
+      
+      <rect x="0" y="90" width="80" height="20" fill="rgba(255,152,0,0.8)" rx="10"/>
+      <text x="10" y="104" font-family="Arial" font-size="10" font-weight="bold" fill="white">Starter: ₦300K</text>
+    </g>
+    
+    <!-- Monthly earnings -->
+    <g transform="translate(300, 110)">
+      <text x="0" y="20" font-family="Arial" font-size="12" fill="white">Monthly Earnings</text>
+      <text x="0" y="45" font-family="Arial" font-size="20" font-weight="bold" fill="white">₦156,750</text>
+      <text x="0" y="65" font-family="Arial" font-size="10" fill="rgba(255,255,255,0.8)">Last month: ₦142,300</text>
+      <text x="0" y="80" font-family="Arial" font-size="10" fill="#4CAF50">+10.1% increase</text>
+    </g>
+    
+    <!-- Achievement badge -->
+    <g transform="translate(200, 200)">
+      <rect x="0" y="0" width="200" height="50" fill="rgba(255,215,0,0.3)" rx="25"/>
+      <text x="100" y="25" text-anchor="middle" font-family="Arial" font-size="11" font-weight="bold" fill="white">🏆 PLATINUM INVESTOR</text>
+      <text x="100" y="40" text-anchor="middle" font-family="Arial" font-size="9" fill="white">Elite status achieved</text>
+    </g>
+  </g>
+  
+  <!-- Success metrics -->
+  <g transform="translate(50, 450)">
+    <rect x="0" y="0" width="300" height="60" fill="rgba(255,255,255,0.2)" rx="10"/>
+    <text x="20" y="25" font-family="Arial" font-size="11" font-weight="bold" fill="white">Success Metrics:</text>
+    <text x="20" y="40" font-family="Arial" font-size="9" fill="white">• 12 months consistent profits • 98.7% success rate • ₦2.8M total returns</text>
+  </g>
+  
+  <!-- Trust indicators -->
+  <g transform="translate(900, 450)">
+    <circle cx="40" cy="40" r="30" fill="rgba(255,255,255,0.3)"/>
+    <text x="40" y="35" text-anchor="middle" font-family="Arial" font-size="7" font-weight="bold" fill="white">TRUSTED</text>
+    <text x="40" y="45" text-anchor="middle" font-family="Arial" font-size="7" font-weight="bold" fill="white">BY 15K+</text>
+  </g>
+</svg>

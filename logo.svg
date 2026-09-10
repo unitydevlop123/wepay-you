@@ -1,0 +1,50 @@
+<svg width="200" height="60" viewBox="0 0 200 60" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="accentGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#4CAF50;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#45a049;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="30" cy="30" r="25" fill="url(#logoGradient)" stroke="#fff" stroke-width="2"/>
+  
+  <!-- Money/Payment icon -->
+  <g transform="translate(18, 18)">
+    <!-- Dollar sign stylized -->
+    <rect x="10" y="4" width="4" height="16" fill="white" rx="2"/>
+    <path d="M8 8 L16 8 Q18 8 18 10 Q18 12 16 12 L8 12" stroke="white" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <path d="M8 12 L16 12 Q18 12 18 14 Q18 16 16 16 L8 16" stroke="white" stroke-width="2" fill="none" stroke-linecap="round"/>
+  </g>
+  
+  <!-- Upward arrow indicating growth -->
+  <g transform="translate(42, 20)">
+    <path d="M0 8 L4 4 L8 8" stroke="url(#accentGradient)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <line x1="4" y1="4" x2="4" y2="12" stroke="url(#accentGradient)" stroke-width="2" stroke-linecap="round"/>
+  </g>
+  
+  <!-- Company text -->
+  <text x="70" y="22" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#333">
+    LET PAY YOU
+  </text>
+  
+  <!-- Tagline -->
+  <text x="70" y="36" font-family="Arial, sans-serif" font-size="8" fill="#666" letter-spacing="0.5px">
+    SECURE • PROFESSIONAL • TRUSTED
+  </text>
+  
+  <!-- Premium indicator -->
+  <rect x="70" y="42" width="40" height="12" fill="url(#accentGradient)" rx="6"/>
+  <text x="90" y="50" font-family="Arial, sans-serif" font-size="7" font-weight="bold" fill="white" text-anchor="middle">
+    PREMIUM
+  </text>
+  
+  <!-- Decorative elements -->
+  <circle cx="190" cy="15" r="3" fill="url(#logoGradient)" opacity="0.6"/>
+  <circle cx="185" cy="45" r="2" fill="url(#accentGradient)" opacity="0.4"/>
+  <circle cx="175" cy="10" r="1.5" fill="#FFD700" opacity="0.8"/>
+</svg>

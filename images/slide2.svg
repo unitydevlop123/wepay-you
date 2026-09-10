@@ -1,0 +1,65 @@
+<svg width="1200" height="600" viewBox="0 0 1200 600" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4CAF50;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#45a049;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <rect width="1200" height="600" fill="url(#bg2)"/>
+  
+  <!-- Professional businessman silhouette -->
+  <g transform="translate(750, 120)">
+    <!-- Head -->
+    <ellipse cx="50" cy="40" rx="35" ry="40" fill="rgba(255,255,255,0.9)"/>
+    <!-- Body (suit) -->
+    <rect x="20" y="75" width="60" height="140" rx="30" fill="rgba(255,255,255,0.8)"/>
+    <!-- Arms -->
+    <ellipse cx="10" cy="110" rx="15" ry="45" fill="rgba(255,255,255,0.7)"/>
+    <ellipse cx="90" cy="110" rx="15" ry="45" fill="rgba(255,255,255,0.7)"/>
+    <!-- Tie -->
+    <polygon points="50,85 45,90 45,130 50,135 55,130 55,90" fill="rgba(255,255,255,0.6)"/>
+    <!-- Suit jacket lapels -->
+    <polygon points="35,85 50,85 45,100 30,95" fill="rgba(255,255,255,0.7)"/>
+    <polygon points="65,85 50,85 55,100 70,95" fill="rgba(255,255,255,0.7)"/>
+  </g>
+  
+  <!-- Success metrics dashboard -->
+  <g transform="translate(150, 150)">
+    <rect x="0" y="0" width="400" height="250" fill="rgba(255,255,255,0.15)" rx="15"/>
+    
+    <!-- Growth chart -->
+    <text x="20" y="30" font-family="Arial" font-size="14" font-weight="bold" fill="white">Monthly Growth</text>
+    <rect x="20" y="50" width="30" height="80" fill="rgba(255,255,255,0.8)"/>
+    <rect x="70" y="40" width="30" height="90" fill="rgba(255,255,255,0.8)"/>
+    <rect x="120" y="25" width="30" height="105" fill="rgba(255,255,255,0.8)"/>
+    <rect x="170" y="15" width="30" height="115" fill="rgba(255,255,255,0.8)"/>
+    
+    <!-- Stats -->
+    <text x="20" y="170" font-family="Arial" font-size="12" fill="white">Active Investors: 15,847</text>
+    <text x="20" y="190" font-family="Arial" font-size="12" fill="white">Total Invested: ₦2.5B</text>
+    <text x="20" y="210" font-family="Arial" font-size="12" fill="white">Success Rate: 98.7%</text>
+  </g>
+  
+  <!-- Investment packages -->
+  <g transform="translate(50, 350)">
+    <rect x="0" y="0" width="120" height="80" fill="rgba(255,255,255,0.2)" rx="8"/>
+    <text x="10" y="20" font-family="Arial" font-size="10" font-weight="bold" fill="white">VIP Package</text>
+    <text x="10" y="40" font-family="Arial" font-size="14" font-weight="bold" fill="white">₦150,000</text>
+    <text x="10" y="60" font-family="Arial" font-size="9" fill="rgba(255,255,255,0.8)">Daily: ₦7,500</text>
+  </g>
+  
+  <g transform="translate(190, 350)">
+    <rect x="0" y="0" width="120" height="80" fill="rgba(255,255,255,0.2)" rx="8"/>
+    <text x="10" y="20" font-family="Arial" font-size="10" font-weight="bold" fill="white">Regular Plus</text>
+    <text x="10" y="40" font-family="Arial" font-size="14" font-weight="bold" fill="white">₦50,000</text>
+    <text x="10" y="60" font-family="Arial" font-size="9" fill="rgba(255,255,255,0.8)">Daily: ₦2,500</text>
+  </g>
+  
+  <!-- Security badges -->
+  <g transform="translate(900, 450)">
+    <circle cx="50" cy="50" r="40" fill="rgba(255,255,255,0.3)"/>
+    <text x="50" y="40" text-anchor="middle" font-family="Arial" font-size="10" font-weight="bold" fill="white">SSL</text>
+    <text x="50" y="55" text-anchor="middle" font-family="Arial" font-size="10" font-weight="bold" fill="white">SECURE</text>
+  </g>
+</svg>
